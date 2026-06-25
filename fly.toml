@@ -1,0 +1,21 @@
+app = "my-tunnel-1234"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  TUNNEL_DOMAIN = "my-tunnel-1234.fly.dev"
+
+[[services]]
+  internal_port = 443
+  protocol = "tcp"
+  [[services.ports]]
+    port = 443
+    handlers = ["tls"]
+
+[[services]]
+  internal_port = 9000
+  protocol = "tcp"
+  [[services.ports]]
+    port = 9000
+    handlers = ["tls"]
