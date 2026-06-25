@@ -1,0 +1,26 @@
+[package]
+name = "tunnel-server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tunnel-proto = { path = "../tunnel-proto" }
+tokio = { version = "1", features = ["full"] }
+axum = { version = "0.8", features = ["macros"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "compression-gzip"] }
+rustls = "0.23"
+rustls-pemfile = "2"
+tokio-rustls = "0.26"
+clap = { version = "4", features = ["derive", "env"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+uuid = { version = "1", features = ["v4"] }
+bytes = "1"
+thiserror = "1"
+chrono = { version = "0.4", features = ["serde"] }
+rcgen = "0.13"
+rustls-pki-types = "1"
+anyhow = "1"

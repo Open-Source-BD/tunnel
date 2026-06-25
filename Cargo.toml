@@ -1,0 +1,3 @@
+[workspace]
+members = ["tunnel-proto", "tunnel-server", "tunnel-client"]
+resolver = "2"

@@ -1,0 +1,20 @@
+[package]
+name = "tunnel-client"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tunnel-proto = { path = "../tunnel-proto" }
+tokio = { version = "1", features = ["full"] }
+clap = { version = "4", features = ["derive", "env"] }
+rustls = "0.23"
+tokio-rustls = "0.26"
+rustls-pki-types = "1"
+webpki-roots = "0.26"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+bytes = "1"
+uuid = { version = "1", features = ["v4"] }
