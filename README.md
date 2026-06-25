@@ -67,6 +67,30 @@ Works for HTTP APIs, web apps, static sites, and anything that speaks HTTP. Visi
 
 ## Quick Start
 
+### 0. Build from source
+
+```bash
+git clone https://github.com/shamirul-007/tunnel.git
+cd tunnel
+cargo build --release
+```
+
+This creates two binaries:
+- **`target/release/tunnel-server`** — the server (invoked as `tunnel-server`)
+- **`target/release/tunnel-client`** — the CLI (invoked as `tunnel`)
+
+Make them available on your `PATH`:
+
+```bash
+# option A: copy to /usr/local/bin
+cp target/release/tunnel-server target/release/tunnel-client /usr/local/bin/
+# rename client binary for shorter command
+mv /usr/local/bin/tunnel-client /usr/local/bin/tunnel
+
+# option B: run directly from build dir
+alias tunnel=./target/release/tunnel-client
+```
+
 ### 1. Start a local server
 
 ```bash
