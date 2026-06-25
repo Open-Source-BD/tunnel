@@ -1,81 +1,110 @@
-# tunnel
+<p align="center">
+  <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT">
+  <img src="https://img.shields.io/badge/rust-1.85%2B-orange" alt="Rust">
+  <img src="https://img.shields.io/badge/status-beta-yellow" alt="Beta">
+  <img src="https://img.shields.io/badge/crates.io-0.1.0-blue" alt="crates.io">
+</p>
 
-[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-![Rust](https://img.shields.io/badge/rust-1.85%2B-orange)
-[![Crates.io](https://img.shields.io/badge/crates.io-0.1.0-blue)](https://crates.io/crates/tunnel-client)
+<h1 align="center">tunnel</h1>
 
-**Self-hosted ngrok alternative in Rust.** Expose localhost behind NAT or a firewall to the public internet through a TLS-encrypted tunnel. Zero ongoing cost when deployed on free-tier infrastructure.
+<p align="center">
+  <strong>Expose localhost to the internet — one command, zero cost.</strong><br>
+  Self-hosted tunnel server in Rust. TLS encrypted. Auth protected. Works in any browser.
+</p>
+
+<p align="center">
+  <a href="#quick-start">Quick Start</a> •
+  <a href="#installation">Installation</a> •
+  <a href="#usage">Usage</a> •
+  <a href="#deployment">Deployment</a> •
+  <a href="#wire-protocol">Protocol</a> •
+  <a href="#development">Development</a>
+</p>
+
+---
 
 ```bash
-# start tunnel server on a VM
+# start server on a VM
 tunnel-server --token s3cret --domain tunnel.example.com
 
-# expose localhost:3000 from your dev machine
+# expose localhost:3000
 tunnel http 3000 --server tunnel.example.com:9000 --token s3cret
 ```
 
-Tunnel URLs work in any browser. No client-side software needed for visitors.
+Works for HTTP APIs, web apps, static sites, and anything that speaks HTTP. Visitors open `https://<subdomain>.tunnel.example.com` in any browser — no client-side install needed.
 
 ---
 
 ## Features
 
-- **Auth tokens** — tunnels require a shared secret; invalid tokens rejected at registration
-- **TLS everywhere** — wire traffic between client and server is encrypted with TLS
-- **Self-signed certs** — automatic dev certs; `--insecure` (`-k`) flag on the client to accept them
+- **TLS by default** — all traffic between client and server is encrypted
+- **Token auth** — only authorized clients can register tunnels
 - **Custom subdomains** — `tunnel http 3000 -d myapp` → `https://myapp.example.com`
-- **Stream multiplexing** — single persistent TLS connection carries many concurrent HTTP requests
-- **Heartbeat keep-alive** — idle connection detection and cleanup
-- **Visitor dashboard** — web UI at `/_tunnel/dashboard` listing active tunnels
-- **Automatic URL-safe subdomains** — random 8-char hex subdomain when not specified
+- **Self-signed support** — automatic dev certs, `-k` to accept on the client
+- **Stream multiplexing** — one TLS connection handles many concurrent requests
+- **Heartbeat keep-alive** — idle detection and cleanup
+- **Visitor dashboard** — live tunnel list at `/_tunnel/dashboard`
+- **80→443 redirect** — built-in HTTP→HTTPS upgrade
 
 ---
 
-## How it works
+## Table of Contents
 
+- [Quick Start](#quick-start)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Deployment](#deployment)
+- [Architecture](#architecture)
+- [Wire Protocol](#wire-protocol)
+- [Authentication](#authentication)
+- [Why Rust?](#why-rust)
+- [Development](#development)
+- [Contributing](#contributing)
+- [Roadmap](#roadmap)
+- [License](#license)
+
+---
+
+## Quick Start
+
+### Local dev (self-signed certs)
+
+```bash
+# terminal 1 — start server
+TUNNEL_TOKEN=devtoken TUNNEL_DOMAIN=localhost tunnel-server
+
+# terminal 2 — start something to expose
+python3 -m http.server 3000
+
+# terminal 3 — expose it
+tunnel http 3000 --server localhost:9000 --token devtoken -k
 ```
-┌──────────────┐     TLS tunnel      ┌────────────────┐    HTTP/HTTPS     ┌──────────┐
-│  Your machine │ ──────────────────▶ │  tunnel-server  │ ◀──────────────── │ Visitor  │
-│  tunnel-client │    :9000 (mux)     │  (free VM)      │     :443         │  Browser  │
-│  localhost:3000│                   │  tunnel.example  │                  │          │
-└──────────────┘                     └────────────────┘                  └──────────┘
+
+Open `https://dev-a1b2c3d4.localhost:443` in your browser (accept self-signed warning).
+
+### Production (real domain, Let's Encrypt)
+
+```bash
+# on your VM
+tunnel-server \
+  --token s3cret \
+  --domain tunnel.example.com \
+  --cert-file /etc/letsencrypt/live/tunnel.example.com/fullchain.pem \
+  --key-file /etc/letsencrypt/live/tunnel.example.com/privkey.pem
+
+# on your dev machine
+tunnel http 3000 -s tunnel.example.com:9000 -t s3cret -d myapp
 ```
 
-1. **tunnel-client** opens a single TLS connection to **tunnel-server** and registers a subdomain.
-2. **tunnel-server** listens for HTTP visitors on port 443. On each request, it serializes the request into a `HttpRequest` frame and sends it over the tunnel.
-3. **tunnel-client** receives the frame, forwards it to `localhost:<port>`, reads the response, and sends back a `HttpResponse` frame.
-4. **tunnel-server** relays the response to the visitor.
-
-All concurrent requests are multiplexed over one TCP connection using stream IDs.
+Your tunnel: **`https://myapp.tunnel.example.com`**
 
 ---
 
 ## Installation
 
-### Cargo
+### From source
 
-```bash
-cargo install tunnel-client tunnel-server
-```
-
-### Binary releases
-
-Download pre-built binaries from the [releases page](https://github.com/shamirul-007/tunnel/releases) (Linux x86_64, macOS x86_64/ARM, optional Windows).
-
-### Docker
-
-```bash
-# server
-docker run -d -p 443:443 -p 9000:9000 --name tunnel-server \
-  -e TUNNEL_TOKEN=s3cret -e TUNNEL_DOMAIN=example.com \
-  tunnel:latest
-
-# client
-docker run --rm tunnel http 3000 \
-  --server tunnel.example.com:9000 --token s3cret
-```
-
-### Build from source
+Requires Rust 1.85+.
 
 ```bash
 git clone https://github.com/shamirul-007/tunnel.git
@@ -84,49 +113,28 @@ cargo build --release
 # binaries at target/release/tunnel-{server,client}
 ```
 
----
-
-## Quick start
-
-### Development (localhost, self-signed certs)
+### Cargo install
 
 ```bash
-# terminal 1 — start the server
-TUNNEL_TOKEN=devtoken TUNNEL_DOMAIN=localhost tunnel-server
-
-# terminal 2 — start something to expose
-python3 -m http.server 3000
-
-# terminal 3 — expose it
-tunnel http 3000 --server localhost:9000 --token devtoken
+cargo install tunnel-client tunnel-server
 ```
 
-Open `https://dev-<hash>.localhost:443` in your browser (accept the self-signed TLS warning).
-
-### Production (real domain, Let's Encrypt)
-
-1. Point `tunnel.example.com` DNS to your server.
-2. Get TLS certificates (e.g., via [acme.sh](https://github.com/acmesh-official/acme.sh) or Caddy).
-3. Start the server:
+### Docker
 
 ```bash
-tunnel-server \
-  --token s3cret \
-  --domain tunnel.example.com \
-  --cert-file /etc/letsencrypt/live/tunnel.example.com/fullchain.pem \
-  --key-file /etc/letsencrypt/live/tunnel.example.com/privkey.pem
+# server
+docker run -d -p 443:443 -p 9000:9000 \
+  -e TUNNEL_TOKEN=s3cret -e TUNNEL_DOMAIN=example.com \
+  tunnel-server
+
+# client
+docker run --rm tunnel http 3000 \
+  -s tunnel.example.com:9000 -t s3cret
 ```
 
-4. Expose your local service:
+### Binary releases
 
-```bash
-tunnel http 3000 \
-  --server tunnel.example.com:9000 \
-  --token s3cret \
-  -d myapp
-```
-
-Your tunnel is live at `https://myapp.tunnel.example.com`.
+Pre-built binaries for Linux, macOS, and Windows are available on the [releases page](https://github.com/shamirul-007/tunnel/releases).
 
 ---
 
@@ -138,25 +146,20 @@ Your tunnel is live at `https://myapp.tunnel.example.com`.
 tunnel http <port> [options]
 ```
 
-| Flag | Short | Env | Default | Description |
-|------|-------|-----|---------|-------------|
-| `--subdomain` | `-d` | — | random 8-char hex | Requested subdomain |
-| `--server` | `-s` | — | `localhost:9000` | Address of tunnel-server |
-| `--token` | `-t` | `TUNNEL_TOKEN` | — | Auth token |
+| Option | Short | Env | Default | Description |
+|--------|-------|-----|---------|-------------|
+| `--subdomain` | `-d` | — | random | Requested subdomain name |
+| `--server` | `-s` | — | `localhost:9000` | Tunnel server address |
+| `--token` | `-t` | `TUNNEL_TOKEN` | — | Auth token (required) |
 | `--insecure` | `-k` | — | `false` | Accept self-signed TLS certs |
-| `--config` | `-c` | — | — | Config file path (optional) |
+| `--config` | `-c` | — | — | Config file path |
 
-**Examples:**
+Examples:
 
 ```bash
-# expose port 3000 with random subdomain
-tunnel http 3000 -s tunnel.example.com:9000 -t s3cret
-
-# expose with custom subdomain
-tunnel http 8080 -d api -s tunnel.example.com:9000 -t s3cret
-
-# local dev with self-signed certs
-tunnel http 3000 -k
+tunnel http 3000 -s tunnel.example.com:9000 -t s3cret     # random subdomain
+tunnel http 3000 -d api -s tunnel.example.com:9000 -t s3cret  # custom subdomain
+tunnel http 3000 -k                                       # local dev, self-signed
 ```
 
 ### TCP tunnel (experimental)
@@ -165,7 +168,7 @@ tunnel http 3000 -k
 tunnel tcp <port> [options]
 ```
 
-Currently implemented as an HTTP tunnel with a TCP-prefixed subdomain. Full raw TCP framing is in development.
+Currently wraps TCP connections as HTTP tunnels with a `tcp-` prefixed subdomain. Full raw TCP framing is in development.
 
 ### Server
 
@@ -173,22 +176,29 @@ Currently implemented as an HTTP tunnel with a TCP-prefixed subdomain. Full raw 
 tunnel-server [options]
 ```
 
-| Flag | Env | Default | Description |
-|------|-----|---------|-------------|
+| Option | Env | Default | Description |
+|--------|-----|---------|-------------|
 | `--bind` | — | `0.0.0.0` | Bind address |
 | `--tunnel-port` | — | `9000` | Port for tunnel client connections |
-| `--http-port` | — | `443` | Port for visitor HTTP/HTTPS traffic |
-| `--http-redirect-port` | — | `80` | Redirect HTTP→HTTPS (set `0` to disable) |
+| `--http-port` | — | `443` | Port for visitor HTTP traffic |
+| `--http-redirect-port` | — | `80` | HTTP→HTTPS redirect (0 to disable) |
 | `--domain` | `TUNNEL_DOMAIN` | `localhost` | Public domain for tunnel URLs |
 | `--token` | `TUNNEL_TOKEN` | — | Auth token (required) |
-| `--cert-file` | — | — | TLS cert file path |
-| `--key-file` | — | — | TLS key file path |
+| `--cert-file` | — | — | TLS certificate path |
+| `--key-file` | — | — | TLS key path |
+
+### Environment variables
+
+| Variable | Used by | Description |
+|----------|---------|-------------|
+| `TUNNEL_TOKEN` | client, server | Auth token |
+| `TUNNEL_DOMAIN` | server | Public domain |
 
 ---
 
 ## Deployment
 
-### fly.io
+### fly.io (free tier)
 
 ```bash
 fly launch --name my-tunnel
@@ -196,7 +206,7 @@ fly secrets set TUNNEL_TOKEN=s3cret TUNNEL_DOMAIN=my-tunnel.fly.dev
 fly deploy
 ```
 
-fly.io handles TLS termination and provides a free `*.fly.dev` subdomain, so `--cert-file` and `--key-file` are not needed.
+fly.io provides free TLS termination and a `*.fly.dev` subdomain — no cert files needed.
 
 ### Docker
 
@@ -204,109 +214,121 @@ fly.io handles TLS termination and provides a free `*.fly.dev` subdomain, so `--
 docker build -t tunnel-server .
 docker run -d --restart unless-stopped \
   -p 443:443 -p 9000:9000 \
-  -v /etc/letsencrypt:/etc/letsencrypt:ro \
   tunnel-server \
-  --token s3cret --domain tunnel.example.com \
-  --cert-file /etc/letsencrypt/live/tunnel.example.com/fullchain.pem \
-  --key-file /etc/letsencrypt/live/tunnel.example.com/privkey.pem
+  --token s3cret --domain tunnel.example.com
 ```
 
-### Reverse proxy (Caddy / Nginx)
+### Reverse proxy
 
-You can place Caddy or Nginx in front of the HTTP listener for automatic TLS:
+Place Caddy or Nginx in front of the HTTP listener for automatic TLS:
 
-```caddy
+```caddyfile
 tunnel.example.com {
-    reverse_proxy localhost:443
+    reverse_proxy localhost:8080
 }
 ```
 
-Then start tunnel-server with `--http-port 8080` and let Caddy handle port 443.
+Then start the server with `--http-port 8080` and let Caddy handle 443.
 
 ---
 
-## Wire protocol
+## Architecture
 
-Versioned binary framing over TLS:
+```
+┌──────────────┐     1 TLS connection       ┌──────────────┐     HTTP      ┌──────────┐
+│  tunnel-client │ ────── multiplexed ──────▶ │ tunnel-server │ ◀─────────── │ Visitor  │
+│  (dev machine) │         frames            │  (free VM)   │    :443      │  Browser  │
+└──────────────┘                             └──────────────┘              └──────────┘
+```
+
+The client opens **one** persistent TLS connection to the server. All visitor requests are serialized into binary frames and multiplexed over this single connection using stream IDs. This avoids NAT/firewall issues and keeps the connection overhead minimal.
+
+**Request flow:**
+
+1. Visitor hits `https://myapp.example.com/path`
+2. Server extracts `myapp` subdomain from the `Host` header
+3. Server assigns a stream ID, serializes the request as an `HttpRequest` frame
+4. Frame is sent to the matching tunnel client
+5. Client forwards the request to `localhost:<port>`
+6. Client reads the response, sends it back as an `HttpResponse` frame
+7. Server relays the response to the visitor
+
+---
+
+## Wire Protocol
+
+Binary framing over TLS:
 
 ```
 ┌─────────┬──────────────┬────────┬──────────────────┐
-│ version │  stream_id   │  type  │  payload_len      │
-│  u8     │  u32 BE      │  u8    │  u32 BE           │
+│ version │  stream_id   │  type  │  payload_len     │
+│   u8    │   u32 BE     │   u8   │   u32 BE         │
 ├─────────┼──────────────┼────────┼──────────────────┤
-│   1     │  0x00000001  │  0x03  │  0x0000009A       │
+│   1     │  0x00000001  │  0x03  │  0x0000009A      │
 └─────────┴──────────────┴────────┴──────────────────┘
 ┌───────────────────────────────────────┐
-│             payload                    │
-│             (JSON, N bytes)            │
+│           payload (JSON)              │
+│           N bytes                     │
 └───────────────────────────────────────┘
 ```
 
 **Message types:**
 
-| Type | Name | Direction | Payload |
-|------|------|-----------|---------|
-| 0x01 | Register | Client → Server | `{subdomain, local_port, token}` |
-| 0x02 | Registered | Server → Client | `{assigned_url, tunnel_id}` |
-| 0x03 | HttpRequest | Server → Client | `{method, uri, headers, visitor}` |
-| 0x04 | HttpResponse | Client → Server | `{status, headers, body}` |
-| 0x05 | TcpData | Bidirectional | Raw bytes (future use) |
-| 0x06 | Error | Bidirectional | `{message}` |
-| 0x07 | CloseStream | Bidirectional | — |
-| 0x08 | Heartbeat | Bidirectional | — |
+| Type | Frame | Direction | Payload |
+|------|-------|-----------|---------|
+| `0x01` | Register | Client → Server | `{subdomain, local_port, token}` |
+| `0x02` | Registered | Server → Client | `{assigned_url, tunnel_id}` |
+| `0x03` | HttpRequest | Server → Client | `{method, uri, headers, visitor}` |
+| `0x04` | HttpResponse | Client → Server | `{status, headers, body}` |
+| `0x05` | TcpData | Bidirectional | raw bytes |
+| `0x06` | Error | Bidirectional | `{message}` |
+| `0x07` | CloseStream | Bidirectional | — |
+| `0x08` | Heartbeat | Bidirectional | — |
+
+The version field (`0x01`) ensures forward compatibility. A future v2 could switch to HTTP/2 multiplexing while old clients still connect with v1.
 
 ---
 
 ## Authentication
 
-Tunnel-server requires a `--token` that every client must present in its `Register` frame. Tokens are compared on the server before the tunnel is established. Clients pass the token via:
+The server requires a `--token` on startup. Every client must present the same token in its `Register` frame or the connection is rejected with an `Error` frame and dropped. Tokens are transmitted inside the TLS tunnel and never exposed on the wire.
 
-- `--token` flag
-- `TUNNEL_TOKEN` environment variable
-
-Tokens are transmitted inside the TLS-encrypted tunnel, so they are never exposed on the wire.
+Clients can pass the token via `--token` flag or `TUNNEL_TOKEN` environment variable.
 
 ---
 
 ## Why Rust?
 
-| | **tunnel** | **ngrok** | **frp** | **bore** |
-|---|---|---|---|---|
-| Language | Rust | Go | Go | Rust |
-| Memory safety | ✅ compile-time | ✅ (GC) | ✅ (GC) | ✅ compile-time |
-| Binary size | ~5 MB | ~15 MB | ~10 MB | ~3 MB |
-| Startup time | instant | instant | instant | instant |
-| Community vibe | 🦀 new tooling | established | established | minimal |
-| Protocol | custom binary | HTTP/2 | custom TCP | custom TCP |
+All major tunnel tools (ngrok, frp, bore) are Go. Rust gives us:
 
-tunnel was written in Rust because all major tunnel tools are Go. Rust gives memory safety without a GC, tiny binaries, and a community eager for new infrastructure tooling.
+- **Memory safety** without a garbage collector
+- **Zero-cost abstractions** — no runtime overhead
+- **Small binaries** (~5 MB stripped)
+- **Sub-millisecond startup** — no VM warmup
+- **Ecosystem fit** — tokio, axum, rustls are the best-in-class async stack
+
+| Tool | Language | Binary | TLS | Auth |
+|------|----------|--------|-----|------|
+| **tunnel** | Rust | ~5 MB | ✅ built-in | ✅ token |
+| ngrok | Go | ~15 MB | ✅ built-in | ✅ account required |
+| frp | Go | ~10 MB | ✅ built-in | ✅ token/OIDC |
+| bore | Rust | ~3 MB | ❌ (tunnel only) | ✅ HMAC |
 
 ---
 
 ## Development
 
-### Build
-
 ```bash
+# build all crates
 cargo build
-```
 
-### Test
-
-```bash
+# run tests
 cargo test
-```
 
-### Run full integration
-
-```bash
-# terminal 1 — server
+# run with live output
 TUNNEL_TOKEN=test123 TUNNEL_DOMAIN=localhost cargo run --bin tunnel-server
 
-# terminal 2 — test server
-python3 -m http.server 3000
-
-# terminal 3 — tunnel client
+# in another terminal
 cargo run --bin tunnel-client http 3000 -s localhost:9000 -d test -k
 ```
 
@@ -314,46 +336,50 @@ cargo run --bin tunnel-client http 3000 -s localhost:9000 -d test -k
 
 ```
 tunnel/
-├── tunnel-proto/        # wire protocol: Frame types, Codec (encode/decode)
-├── tunnel-server/       # axum-based HTTP server + TLS tunnel listener
-│   ├── main.rs          # CLI args, startup orchestration
-│   ├── tunnel.rs        # TunnelManager, stream multiplexing, proxying
-│   └── tls.rs           # TlsConfig, self-signed cert generation
-├── tunnel-client/       # CLI client
-│   ├── main.rs          # CLI args (http/tcp subcommands)
-│   └── tunnel.rs        # TLS connect, NoCertVerifier, request forwarding
-└── Cargo.toml           # workspace root
+├── Cargo.toml              # workspace root
+├── tunnel-proto/           # wire protocol: Frame types, Codec
+│   ├── src/types.rs        #   message types, payload structs
+│   └── src/codec.rs        #   async encode/decode framing
+├── tunnel-server/          # axum HTTP server + TLS listener
+│   ├── src/main.rs         #   CLI args, startup orchestration
+│   ├── src/tunnel.rs       #   TunnelManager, multiplexing, proxying
+│   └── src/tls.rs          #   TlsConfig, self-signed cert generation
+└── tunnel-client/          # CLI tunnel client
+    ├── src/main.rs         #   CLI args (http/tcp subcommands)
+    └── src/tunnel.rs       #   TLS connect, NoCertVerifier, forwarding
 ```
-
-### Contributing
-
-1. Fork the repo
-2. Create a feature branch (`git checkout -b feat/my-feature`)
-3. Commit your changes (`git commit -am 'add my feature'`)
-4. Push to the branch (`git push origin feat/my-feature`)
-5. Open a Pull Request
-
-Please ensure `cargo test` passes and `cargo clippy` is clean.
 
 ---
 
 ## Roadmap
 
 - [ ] Raw TCP tunnel (SSH, databases, custom protocols)
-- [ ] WebSocket passthrough (HMR, live-reload)
-- [ ] Client configuration file (`~/.tunnel/config.toml`)
-- [ ] Prometheus metrics endpoint
-- [ ] Tunnel management API (list, close tunnels programmatically)
-- [ ] Homebrew formula + Scoop bucket
-- [ ] GitHub Actions CI + cross-compilation releases
+- [ ] WebSocket passthrough
+- [ ] Client config file (`~/.tunnel/config.toml`)
+- [ ] Prometheus metrics
+- [ ] Tunnel management API
+- [ ] Homebrew formula
+- [ ] CI + cross-compilation releases
 - [ ] Docker image on GHCR
+
+---
+
+## Contributing
+
+PRs welcome. Please ensure `cargo test` passes and `cargo clippy` is clean.
+
+1. Fork the repo
+2. Create a feature branch (`git checkout -b feat/my-feature`)
+3. Commit your changes (`git commit -am 'add my feature'`)
+4. Push (`git push origin feat/my-feature`)
+5. Open a Pull Request
 
 ---
 
 ## License
 
-MIT — see [LICENSE](LICENSE) for details.
+MIT — see [LICENSE](LICENSE).
 
 ---
 
-*Inspired by [bore](https://github.com/ekzhang/bore), [frp](https://github.com/fatedier/frp), and the Rust community's love for infrastructure tooling.*
+*Inspired by [bore](https://github.com/ekzhang/bore), [frp](https://github.com/fatedier/frp), and the Rust community.*
