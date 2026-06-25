@@ -70,7 +70,7 @@ Works for HTTP APIs, web apps, static sites, and anything that speaks HTTP. Visi
 ### 0. Build from source
 
 ```bash
-git clone https://github.com/shamirul-007/tunnel.git
+git clone https://github.com/Open-Source-BD/tunnel.git
 cd tunnel
 cargo build --release
 ```
@@ -161,7 +161,7 @@ Tunnel is live at **`https://myapp.tunnel.example.com`** — no browser warnings
 Requires Rust 1.85+.
 
 ```bash
-git clone https://github.com/shamirul-007/tunnel.git
+git clone https://github.com/Open-Source-BD/tunnel.git
 cd tunnel
 cargo build --release
 # binaries at target/release/tunnel-{server,client}
@@ -188,7 +188,7 @@ docker run --rm tunnel http 3000 \
 
 ### Binary releases
 
-Pre-built binaries for Linux, macOS, and Windows are available on the [releases page](https://github.com/shamirul-007/tunnel/releases).
+Pre-built binaries for Linux, macOS, and Windows are available on the [releases page](https://github.com/Open-Source-BD/tunnel/releases).
 
 ---
 
