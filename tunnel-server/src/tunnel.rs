@@ -8,6 +8,7 @@ use tunnel_proto::types::*;
 
 pub struct TunnelManager {
     token: String,
+    domain: String,
     tunnels: RwLock<HashMap<String, TunnelHandle>>,
 }
 
@@ -105,9 +106,10 @@ impl TunnelHandle {
 }
 
 impl TunnelManager {
-    pub fn new(token: String) -> Self {
+    pub fn new(token: String, domain: String) -> Self {
         Self {
             token,
+            domain,
             tunnels: RwLock::new(HashMap::new()),
         }
     }
@@ -218,7 +220,7 @@ async fn handle_tunnel_client(
     let subdomain = reg.subdomain.clone();
     let handle = manager.register(subdomain.clone(), reg.local_port, tx).await;
 
-    let assigned_url = format!("https://{subdomain}.{}", std::env::var("TUNNEL_DOMAIN").unwrap_or_default());
+    let assigned_url = format!("https://{subdomain}.{}", manager.domain);
     let registered = RegisteredPayload {
         assigned_url,
         tunnel_id: uuid::Uuid::new_v4().to_string(),

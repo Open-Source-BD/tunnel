@@ -18,16 +18,20 @@ enum Commands {
         port: u16,
 
         /// Custom subdomain (optional)
-        #[arg(short, long)]
+        #[arg(short = 'd', long)]
         subdomain: Option<String>,
 
         /// Tunnel server address
-        #[arg(short, long, default_value = "localhost:9000")]
+        #[arg(short = 's', long, default_value = "localhost:9000")]
         server: String,
 
         /// Auth token
         #[arg(short, long, env = "TUNNEL_TOKEN")]
         token: String,
+
+        /// Allow self-signed/invalid TLS certs
+        #[arg(short = 'k', long)]
+        insecure: bool,
 
         /// Config file
         #[arg(short, long)]
@@ -45,6 +49,10 @@ enum Commands {
         /// Auth token
         #[arg(short, long, env = "TUNNEL_TOKEN")]
         token: String,
+
+        /// Allow self-signed/invalid TLS certs
+        #[arg(short = 'k', long)]
+        insecure: bool,
     },
 }
 
@@ -60,19 +68,21 @@ async fn main() -> anyhow::Result<()> {
             subdomain,
             server,
             token,
+            insecure,
             ..
         } => {
             let subdomain = subdomain.unwrap_or_else(|| {
                 format!("dev-{}", uuid::Uuid::new_v4().to_string().chars().take(8).collect::<String>())
             });
-            tunnel::start_http_tunnel(&server, &token, &subdomain, port).await?;
+            tunnel::start_http_tunnel(&server, &token, &subdomain, port, insecure).await?;
         }
         Commands::Tcp {
             port,
             server,
             token,
+            insecure,
         } => {
-            tunnel::start_tcp_tunnel(&server, &token, port).await?;
+            tunnel::start_tcp_tunnel(&server, &token, port, insecure).await?;
         }
     }
 

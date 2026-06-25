@@ -3,7 +3,7 @@ mod tunnel;
 
 use crate::tls::TlsConfig;
 use crate::tunnel::TunnelManager;
-use axum::extract::{ConnectInfo, Path, State};
+use axum::extract::{ConnectInfo, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::any;
@@ -55,7 +55,7 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     let args = Args::parse();
-    let tunnels = Arc::new(TunnelManager::new(args.token.clone()));
+    let tunnels = Arc::new(TunnelManager::new(args.token.clone(), args.domain.clone()));
 
     // Set up TLS
     let tls_config = if let (Some(cert), Some(key)) = (&args.cert_file, &args.key_file) {
@@ -93,6 +93,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/_tunnel/health", axum::routing::get(health))
         .route("/_tunnel/dashboard", axum::routing::get(dashboard))
         .route("/{*path}", any(proxy_handler))
+        .fallback(any(proxy_handler))
         .layer(CorsLayer::permissive())
         .with_state(state);
 
@@ -153,7 +154,6 @@ th{{background:#f5f5f5}}
 async fn proxy_handler(
     State(state): State<AppState>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
-    Path(path): Path<String>,
     req: axum::extract::Request,
 ) -> Response {
     let host = req
@@ -168,6 +168,8 @@ async fn proxy_handler(
     if subdomain.is_empty() || subdomain == state.domain.split('.').next().unwrap_or("") {
         return (StatusCode::NOT_FOUND, "no tunnel").into_response();
     }
+
+    let path = req.uri().path().to_string();
 
     match state.tunnels.route(&subdomain).await {
         Some(handle) => match handle.proxy_request(req, &path, addr).await {
