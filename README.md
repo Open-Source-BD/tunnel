@@ -67,36 +67,66 @@ Works for HTTP APIs, web apps, static sites, and anything that speaks HTTP. Visi
 
 ## Quick Start
 
-### Local dev (self-signed certs)
+### 1. Start a local server
 
 ```bash
-# terminal 1 — start server
-TUNNEL_TOKEN=devtoken TUNNEL_DOMAIN=localhost tunnel-server
-
-# terminal 2 — start something to expose
+echo "<h1>Hello from Tunnel!</h1>" > index.html
 python3 -m http.server 3000
+```
 
-# terminal 3 — expose it
+### 2. Start the tunnel server
+
+Open a new terminal:
+
+```bash
+TUNNEL_TOKEN=devtoken TUNNEL_DOMAIN=localhost tunnel-server
+```
+
+Output:
+```
+INFO visitor HTTPS server listening on 0.0.0.0:443
+INFO tunnel server listening on 0.0.0.0:9000
+```
+
+### 3. Expose your local server
+
+Open another terminal:
+
+```bash
 tunnel http 3000 --server localhost:9000 --token devtoken -k
 ```
 
-Open `https://dev-a1b2c3d4.localhost:443` in your browser (accept self-signed warning).
+Output:
+```
+Tunnel URL: https://dev-a1b2c3d4.localhost
+```
 
-### Production (real domain, Let's Encrypt)
+### 4. Open the tunnel URL
+
+Visit **`https://dev-a1b2c3d4.localhost`** in your browser.
+
+- Accept the self-signed TLS warning (click "Advanced" → "Proceed")
+- You should see **"Hello from Tunnel!"**
+
+> **Tip:** The subdomain (`dev-a1b2c3d4`) is random each time. Copy the `Tunnel URL:` from the client output.
+
+---
+
+### Production setup (real domain)
 
 ```bash
-# on your VM
+# 1. On your VM — start server with TLS certs
 tunnel-server \
   --token s3cret \
   --domain tunnel.example.com \
   --cert-file /etc/letsencrypt/live/tunnel.example.com/fullchain.pem \
   --key-file /etc/letsencrypt/live/tunnel.example.com/privkey.pem
 
-# on your dev machine
+# 2. On your dev machine — expose localhost:3000
 tunnel http 3000 -s tunnel.example.com:9000 -t s3cret -d myapp
 ```
 
-Your tunnel: **`https://myapp.tunnel.example.com`**
+Tunnel is live at **`https://myapp.tunnel.example.com`** — no browser warnings.
 
 ---
 
